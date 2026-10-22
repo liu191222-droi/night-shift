@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>大夜班 排班系統</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f7fb;--card:#fff;--tx:#1d2433;--mute:#6b7488;--bd:#dde1ea;--ac:#2f5fd0;--off:#e5484d;--offbg:#fde8e9;--ok:#1f9d55;--okbg:#e4f6ec;--warn:#b7791f;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171f;--card:#1e222d;--tx:#e8ebf2;--mute:#9aa3b5;--bd:#333a4a;--ac:#6b92f0;--off:#ff6b70;--offbg:#3a2124;--ok:#4cc582;--okbg:#1c3226;--warn:#e8b04a;--warnbg:#3a3019}}
+:root[data-theme="dark"]{--bg:#14171f;--card:#1e222d;--tx:#e8ebf2;--mute:#9aa3b5;--bd:#333a4a;--ac:#6b92f0;--off:#ff6b70;--offbg:#3a2124;--ok:#4cc582;--okbg:#1c3226;--warn:#e8b04a;--warnbg:#3a3019}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif}
+main{max-width:900px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,select{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;cursor:pointer}
+button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+input{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;max-width:100%}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:99;padding:20px}
+.modal>div{background:var(--card);border-radius:14px;padding:22px;max-width:340px;text-align:center}
+.modal p{margin:0 0 16px;font-size:16px;font-weight:600}
+.mute{color:var(--mute);font-size:13px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:10px}
+.hd{text-align:center;font-size:13px;color:var(--mute)}
+.day{min-height:54px;border:1px solid var(--bd);border-radius:8px;padding:4px 6px;background:var(--card);text-align:left;position:relative;line-height:1.3}
+.day b{font-size:13px}
+.day.wk{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.day.blank{border:none;background:none;cursor:default}
+.day small{display:block;font-size:12px}
+.tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;margin-right:4px}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.no{background:var(--warnbg);color:var(--warn)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;min-width:100%;font-size:13px}
+th,td{border:1px solid var(--bd);padding:4px 6px;text-align:center;white-space:nowrap}
+th{background:var(--bg)}
+:root{--sat:#e1f5e6;--sun:#fde4e5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--sat:#1b2f23;--sun:#3a2326}}
+:root[data-theme="dark"]{--sat:#1b2f23;--sun:#3a2326}
+.sat{background:var(--sat)}.sun{background:var(--sun)}
+td.wkc{background:var(--okbg);color:var(--ok);font-weight:600}
+td.c{cursor:pointer;min-width:52px}
+td.o{background:var(--offbg);color:var(--off);font-weight:600}
+td.w{color:var(--mute)}
+td.req{outline:2px solid var(--ok);outline-offset:-2px}
+.bad{background:var(--warnbg);color:var(--warn);font-weight:700}
+.good{color:var(--ok);font-weight:700}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>🌙 大夜班 排班系統</h1>
+<div class="card">
+  <div class="row">
+    <span>月份：</span><select id="month"></select>
+    <span class="mute">規則：每天 2 人上班、2 人 OFF</span>
+  </div>
+  <div class="row" id="tabs" style="margin-top:10px">
+    <button id="tStaff" class="on">我要填寫</button>
+    <button id="tBoss">🔒 後台管理</button>
+  </div>
+</div>
+
+<section id="staff">
+  <div class="card">
+    <div class="row"><b>1. 我是誰：</b><span id="who" class="row"></span></div>
+    <div class="row hide" id="login" style="margin-top:8px"><b id="loginWho"></b><input type="password" id="upw" placeholder="請輸入個人密碼"><button class="pri" id="upwGo">確認</button><span id="upwMsg" class="mute"></span></div>
+    <div class="row hide" id="acct" style="margin-top:8px"><span id="acctWho"></span><button id="btnLogout">登出</button><button id="btnPw">修改密碼</button></div>
+    <div class="row hide" id="pwBox" style="margin-top:8px"><input type="password" id="oldPw" placeholder="舊密碼"><input type="password" id="usrNew" placeholder="新密碼（至少 4 碼）"><button class="pri" id="pwSave">確定修改</button><button id="pwCancel">取消</button><span id="pwBoxMsg" class="mute"></span></div>
+    <p class="mute" style="margin:10px 0 0">2. 點選你<b>要上班</b>的日子（綠色＝要上班），再點一次取消，選好後按「存檔」。存檔後會鎖定，要更改請按「修改」。每天只需要 2 個人上班，沒選的日子會視為可以 OFF。</p>
+    <div id="myCal"></div>
+    <p id="saveMsg" class="mute"></p>
+  </div>
+  <div class="card"><b>大家選的上班日（即時更新）</b><p class="mute" style="margin:4px 0 8px">預設為 OFF，同事選了要上班的日子會改成 F（週六淺綠底、週日淺紅底），可以參考其他人的狀況再決定自己的日子。</p><div class="scroll" id="reqTbl"></div></div>
+  <div class="card"><b>填寫狀況</b><div id="status" style="margin-top:8px"></div></div>
+</section>
+
+<section id="boss" class="hide">
+  <div class="card" id="gate"><b>🔒 請輸入後台密碼</b>
+    <div class="row" style="margin-top:8px"><input type="password" id="pw" inputmode="numeric" placeholder="密碼"><button class="pri" id="pwGo">進入</button></div>
+    <p id="pwMsg" class="mute"></p></div>
+  <div id="adminBody" class="hide">
+    <div class="card"><b>填寫開關（依上方選擇的月份）</b>
+      <div class="row" style="margin-top:8px"><button id="toggleClose"></button><span id="closeState" class="mute"></span></div></div>
+    <div class="card"><b>人員管理</b>
+      <p class="mute" style="margin:4px 0 8px">在這裡調整順序、新增或刪除人員，同事那邊的名單與表格順序會一起更新。</p>
+      <div id="roster"></div>
+      <div class="row" style="margin-top:8px"><input id="newName" placeholder="新增人員姓名" maxlength="10"><input type="password" id="newPw" placeholder="設定個人密碼（至少 4 碼）"><button id="addP">＋ 新增人員</button></div>
+      <p id="rosterMsg" class="mute"></p></div>
+    <div class="card"><b>班表</b>
+      <div class="row" style="margin:8px 0">
+        <button id="clear">依同事填寫重設</button>
+        <button class="pri" id="save">儲存班表</button>
+        <button id="csv">下載 CSV</button>
+      </div>
+      <p class="mute">表格內容依同事實際存檔的上班日顯示，預設為 OFF，同事填寫上班的日子會自動改成 F，也可直接點格子切換 F／OFF。</p>
+      <div class="scroll" id="bossTbl"></div>
+      <p id="bossMsg" class="mute"></p></div>
+    <div class="card"><b>修改後台密碼</b>
+      <div class="row" style="margin-top:8px"><input type="password" id="pw2" placeholder="新密碼（至少 4 碼）"><button id="pwSet">更改密碼</button></div>
+      <p id="pw2Msg" class="mute"></p></div>
+  </div>
+</section>
+</main>
+<div class="modal hide" id="modal"><div><p id="modalTxt"></p><button class="pri" id="modalOk">確認</button></div></div>
+
+<script>
+let ROSTER=[{id:"p1",name:"浩承"},{id:"p0",name:"俊瑋"},{id:"p3",name:"皓翔"},{id:"p2",name:"為哲"}];
+let NAMES=ROSTER.map(r=>r.name);
+function idOf(n){const r=ROSTER.find(x=>x.name===n);return r?r.id:"x"}
+const DEFPW={p1:"1520846",p0:"1512851",p3:"1525673",p2:"1526596"};
+let userPw={},authed=new Set(),pending="",pwArm=null;
+let unlocked=false,pwHash=null,delArm=null;
+const WD=["一","二","三","四","五","六","日"];
+let db=null,user=null,isOwner=false;
+let month="",me="",avail={},sched=null,draft={}; // avail[name]=Set of days ; draft[day]=Set of OFF names
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+function dim(m){const[y,mo]=m.split("-").map(Number);return new Date(y,mo,0).getDate()}
+function firstDow(m){const[y,mo]=m.split("-").map(Number);return (new Date(y,mo-1,1).getDay()+6)%7}
+function wc(i){return i===5?"sat":i===6?"sun":""}
+function dow(m,d){const[y,mo]=m.split("-").map(Number);return (new Date(y,mo-1,d).getDay()+6)%7}
+
+// ---- month select (this month + next 5)
+(function(){const t=new Date();let y=t.getFullYear(),m=t.getMonth()+1;const opts=[];
+ for(let i=0;i<7;i++){opts.push(y+"-"+pad(m));m++;if(m>12){m=1;y++}}
+ $("month").innerHTML=opts.map(o=>`<option value="${o}">${o.replace("-"," 年 ")} 月</option>`).join("");
+ month=opts[1];$("month").value=month;
+})();
+
+// ---- tabs
+$("tStaff").onclick=()=>tab("staff");$("tBoss").onclick=()=>tab("boss");
+function tab(t){$("staff").classList.toggle("hide",t!=="staff");$("boss").classList.toggle("hide",t!=="boss");
+ $("tStaff").classList.toggle("on",t==="staff");$("tBoss").classList.toggle("on",t==="boss");}
+
+$("month").onchange=()=>{month=$("month").value;draft={};bossDirty=false;resetMine();$("saveMsg").textContent="";subscribe();render()};
+
+// ---- staff view
+function renderWho(){
+ $("who").innerHTML=NAMES.map(n=>`<button class="${n===me?"on":""}" data-n="${n}">${n}</button>`).join("");
+ $("who").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  const n=b.dataset.n;
+  if(authed.has(idOf(n))){me=n;pending="";resetMine();$("saveMsg").textContent="";render()}
+  else{pending=n;$("upw").value="";$("upwMsg").textContent="";render();$("upw").focus()}
+ });
+ $("login").classList.toggle("hide",!pending||pending===me);
+ $("loginWho").textContent=pending?pending+" 密碼：":"";
+ $("acct").classList.toggle("hide",!me);$("acctWho").textContent=me?"✅ 已登入："+me:"";
+ if(!me)$("pwBox").classList.add("hide");
+}
+async function verifyUser(name,v){
+ const id=idOf(name),h=await sha(v),exp=userPw[id]||(DEFPW[id]?await sha(DEFPW[id]):null);
+ return !!exp&&exp===h;
+}
+async function tryLogin(){
+ const v=$("upw").value.trim();if(!pending||!v)return;
+ let ok=false;try{ok=await verifyUser(pending,v)}catch(e){}
+ if(ok){authed.add(idOf(pending));me=pending;pending="";$("upw").value="";resetMine();$("saveMsg").textContent="";render()}
+ else $("upwMsg").textContent="密碼錯誤"
+}
+$("upwGo").onclick=tryLogin;$("upw").onkeydown=e=>{if(e.key==="Enter")tryLogin()};
+$("btnLogout").onclick=()=>{authed.delete(idOf(me));me="";pending="";dirty=false;myDraft=new Set();editing=true;$("saveMsg").textContent="已登出";$("pwBox").classList.add("hide");render()};
+$("btnPw").onclick=()=>{$("pwBox").classList.toggle("hide");$("oldPw").value="";$("usrNew").value="";$("pwBoxMsg").textContent=""};
+$("pwCancel").onclick=()=>$("pwBox").classList.add("hide");
+$("pwSave").onclick=async()=>{
+ const o=$("oldPw").value.trim(),n=$("usrNew").value.trim(),m=$("pwBoxMsg");
+ if(!me)return;if(!o){m.textContent="請輸入舊密碼";return}
+ if(n.length<4){m.textContent="新密碼至少 4 碼";return}
+ let ok=false;try{ok=await verifyUser(me,o)}catch(e){}
+ if(!ok){m.textContent="舊密碼錯誤";return}
+ try{const id=idOf(me);userPw[id]=await sha(n);await db.collection("config").doc("userpw").set({map:JSON.stringify(userPw)});
+  m.textContent="✓ 密碼已修改";$("oldPw").value="";$("usrNew").value="";setTimeout(()=>$("pwBox").classList.add("hide"),1200)}
+ catch(e){m.textContent="修改失敗，請稍後再試"}
+};
+function renderMyCal(){
+ if(!me){$("myCal").innerHTML='<p class="mute">請先選擇你的名字並輸入密碼</p>';return}
+ const n=dim(month),f=firstDow(month),mine=editing?myDraft:(avail[me]||new Set());
+ let h='<div class="cal">'+WD.map((w,i)=>`<div class="hd ${wc(i)}">${w}</div>`).join("");
+ for(let i=0;i<f;i++)h+='<div class="day blank"></div>';
+ for(let d=1;d<=n;d++){const wk=mine.has(d);
+  h+=`<button class="day ${wc(dow(month,d))} ${wk?"wk":""}" data-d="${d}" ${editing||closed?"":"disabled"}><b>${d}</b><small>${wk?"要上班":""}</small></button>`}
+ h+="</div>";h+=`<p class="mute">已選 ${mine.size} 天要上班（平均每人一個月約上 ${Math.round(n/2)} 天）　${closed?"🚫 本月填寫已關閉":editing?"✏️ 編輯中，尚未存檔":"🔒 已存檔"}</p>`;
+ h+=`<div class="row">${editing?'<button class="pri" id="btnSave">💾 存檔</button>'+(submitted[me]?'<button id="btnCancel">取消修改</button>':''):'<button id="btnEdit">✏️ 修改</button>'}</div>`;
+ $("myCal").innerHTML=h;
+ $("myCal").querySelectorAll("button.day").forEach(b=>b.onclick=()=>toggleMine(+b.dataset.d));
+ const bs=$("btnSave"),be=$("btnEdit"),bc=$("btnCancel");
+ if(bs)bs.onclick=saveMine;
+ if(be)be.onclick=()=>{if(closed){showAlert(CLOSED_MSG);return}editing=true;dirty=false;myDraft=new Set(avail[me]||[]);$("saveMsg").textContent="";renderMyCal()};
+ if(bc)bc.onclick=()=>{resetMine();$("saveMsg").textContent="";renderMyCal()};
+}
+let editing=true,dirty=false,myDraft=new Set();
+function resetMine(){dirty=false;myDraft=new Set(avail[me]||[]);editing=!submitted[me]}
+function toggleMine(d){
+ if(closed){showAlert(CLOSED_MSG);return}
+ if(!editing)return;
+ if(myDraft.has(d))myDraft.delete(d);
+ else{const t=extWork(me,new Set([...myDraft,d]));const L=runLen(t,d);if(L>=7){showAlert(`你已連續上${L}天班，請適當休息`);return}myDraft.add(d)}
+ dirty=true;renderMyCal();
+}
+async function saveMine(){
+ if(!db||!me){if(!db)$("saveMsg").textContent="無法連線資料庫：請用 claude.ai 的原始連結開啟，並登入有編輯權限的帳號";return}
+ if(closed){showAlert(CLOSED_MSG);return}
+ $("saveMsg").textContent="儲存中…";
+ try{
+  await db.collection("avail").doc(month+"_"+idOf(me)).set({month,name:me,work:[...myDraft].sort((a,b)=>a-b),at:Date.now()});
+  allAvail[month]=avail;avail[me]=new Set(myDraft);submitted[me]=true;editing=false;dirty=false;
+  $("saveMsg").textContent="✓ 已存檔";render();
+ }catch(e){$("saveMsg").textContent="儲存失敗（"+((e&&e.code)||"error")+"）"+(e&&e.code==="permission_denied"?"：你沒有寫入權限，請跟主管確認已登入並有編輯權限":"，請稍後再試")}
+}
+let submitted={};
+function renderStatus(){
+ $("status").innerHTML=NAMES.map(n=>{const ok=submitted[n];return `<span class="tag ${ok?"ok":"no"}">${n}：${ok?"已填 "+(avail[n]?avail[n].size:0)+" 天上班":"尚未填寫"}</span>`}).join("");
+}
+
+// ---- schedule table (shared by boss + final)
+function table(offMap,editable){
+ const n=dim(month);let h="<table><tr><th>人員</th>";
+ for(let d=1;d<=n;d++)h+=`<th class="${wc(dow(month,d))}">${d}<br><span class="mute">${WD[dow(month,d)]}</span></th>`;
+ h+="<th>上班天數</th></tr>";
+ NAMES.forEach(nm=>{let cnt=0;h+=`<tr><th>${nm}</th>`;
+  for(let d=1;d<=n;d++){const off=(offMap[d]||new Set()).has(nm);if(!off)cnt++;
+   const rq=avail[nm]&&avail[nm].has(d);
+   h+=`<td class="c ${wc(dow(month,d))}" data-n="${nm}" data-d="${d}">${off?'<span class="mute">OFF</span>':"<b>F</b>"}</td>`}
+  h+=`<td><b>${cnt}</b></td></tr>`});
+ h+='<tr><th>當日上班人數</th>';
+ for(let d=1;d<=n;d++){const c=NAMES.length-(offMap[d]||new Set()).size;h+=`<td class="${c===2?"good":"bad"}">${c}</td>`}
+ return h+"<td></td></tr></table>";
+}
+let closed=false,allAvail={},schedAll={};
+const CLOSED_MSG="本月份已關閉填寫，若需異動，請洽主管";
+function mShift(m,k){const[y,mo]=m.split("-").map(Number);const d=new Date(y,mo-1+k,1);return d.getFullYear()+"-"+pad(d.getMonth()+1)}
+function workOf(mk,name){const n=dim(mk),w=new Set(),sc=schedAll[mk];
+ if(sc){for(let d=1;d<=n;d++)if(!(sc[d]&&sc[d].has(name)))w.add(d)}
+ else if(allAvail[mk]&&allAvail[mk][name])allAvail[mk][name].forEach(d=>w.add(d));
+ return w}
+function extWork(name,cur){const n=dim(month),P=dim(mShift(month,-1)),e=new Set(cur);
+ workOf(mShift(month,-1),name).forEach(k=>e.add(k-P));
+ workOf(mShift(month,1),name).forEach(k=>e.add(n+k));return e}
+function maxRunIn(e,n){let m=0;for(let d=1;d<=n;d++)if(e.has(d))m=Math.max(m,runLen(e,d));return m}
+function showAlert(t){$("modalTxt").textContent=t;$("modal").classList.remove("hide")}
+$("modalOk").onclick=()=>$("modal").classList.add("hide");
+function runLen(set,d){let a=d,b=d;while(set.has(a-1))a--;while(set.has(b+1))b++;return b-a+1}
+function maxRun(set,n){let m=0,c=0;for(let d=1;d<=n;d++){if(set.has(d)){c++;if(c>m)m=c}else c=0}return m}
+$("toggleClose").onclick=async()=>{
+ const v=!closed;
+ try{await db.collection("config").doc("close_"+month).set({closed:v,at:Date.now()});closed=v;render()}
+ catch(e){$("closeState").textContent="設定失敗，請稍後再試"}
+};
+let bossDirty=false;
+function fromAvail(){const n=dim(month),o={};for(let d=1;d<=n;d++)o[d]=new Set(NAMES.filter(x=>!(avail[x]&&avail[x].has(d))));return o}
+function renderBoss(){
+ if(!bossDirty)draft=fromAvail();
+ $("toggleClose").textContent=closed?"🔓 重新開放填寫":"🚫 關閉填寫";
+ $("closeState").textContent=closed?"目前狀態：已關閉，同事無法填寫或修改":"目前狀態：開放填寫中";
+ $("bossTbl").innerHTML=table(draft,true);
+ $("bossTbl").querySelectorAll("td.c").forEach(td=>td.onclick=()=>{
+  bossDirty=true;const d=+td.dataset.d,nm=td.dataset.n;const s=draft[d]||(draft[d]=new Set());s.has(nm)?s.delete(nm):s.add(nm);
+  if(!s.has(nm)){const w=new Set();for(let k=1;k<=dim(month);k++)if(!(draft[k]&&draft[k].has(nm)))w.add(k);const L=runLen(extWork(nm,w),d);if(L>=7)showAlert(`${nm} 已連續上${L}天班，請適當休息`)}
+  renderBoss()});
+ const n=dim(month);let bad=[];
+ for(let d=1;d<=n;d++)if((draft[d]||new Set()).size!==2)bad.push(d);
+ $("bossMsg").textContent=bad.length?`⚠ 這些日子上班不是剛好 2 人：${bad.join("、")} 日`:"✓ 每天都剛好 2 人上班、2 人 OFF";
+ {const nn=dim(month),over=NAMES.filter(x=>{const w=new Set();for(let k=1;k<=nn;k++)if(!(draft[k]&&draft[k].has(x)))w.add(k);return maxRunIn(extWork(x,w),nn)>=7});
+  if(over.length)$("bossMsg").textContent+=`　⚠ 連續上班超過 6 天：${over.join("、")}`}
+}
+$("clear").onclick=()=>{bossDirty=false;renderBoss()};
+$("save").onclick=async()=>{
+ const o={};Object.keys(draft).forEach(d=>o[d]=[...draft[d]]);
+ try{await db.collection("sched").doc(month).set({month,off:JSON.stringify(o),at:Date.now()});$("bossMsg").textContent="✓ 班表已儲存"}
+ catch(e){$("bossMsg").textContent="儲存失敗，請稍後再試"}
+};
+$("csv").onclick=async()=>{
+ const n=dim(month);let rows=[["日期","星期","OFF 1","OFF 2","上班"]];
+ for(let d=1;d<=n;d++){const off=[...(draft[d]||[])];rows.push([`${month}-${pad(d)}`,"週"+WD[dow(month,d)],off[0]||"",off[1]||"",NAMES.filter(x=>!off.includes(x)).join("、")])}
+ const data="\ufeff"+rows.map(r=>r.join(",")).join("\n");
+ try{const bl=new Blob([data],{type:"text/csv;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download=`大夜班表_${month}.csv`;document.body.appendChild(a);a.click();a.remove()}catch(e){}
+};
+
+function renderReq(){
+ const n=dim(month);let h="<table><tr><th>人員</th>";
+ for(let d=1;d<=n;d++)h+=`<th class="${wc(dow(month,d))}">${d}<br><span class="mute">${WD[dow(month,d)]}</span></th>`;
+ h+="<th>合計</th></tr>";
+ NAMES.forEach(nm=>{const s=avail[nm]||new Set();h+=`<tr><th>${nm}</th>`;
+  for(let d=1;d<=n;d++){const w=s.has(d);h+=`<td class="${wc(dow(month,d))}">${w?"<b>F</b>":'<span class="mute">OFF</span>'}</td>`}
+  h+=`<td><b>${s.size}</b></td></tr>`});
+ h+="<tr><th>當日上班人數</th>";
+ for(let d=1;d<=n;d++){const c=NAMES.filter(x=>avail[x]&&avail[x].has(d)).length;h+=`<td class="${c===2?"good":"bad"}">${c}</td>`}
+ $("reqTbl").innerHTML=h+"<td></td></tr></table>";
+}
+function render(){renderWho();renderMyCal();renderReq();renderStatus();if(unlocked){renderRoster();renderBoss()}}
+
+// ---- 資料庫（Google 試算表 / Apps Script）
+const API_URL="https://script.google.com/macros/s/AKfycbzVx6ECEVv9sgY0aMBdtCUodz2CWtfJuf3dXO6Nj3m2VNkrNY0vv45iAcaBWtR0mWUhVQ/exec"; // 若頁面不是放在 Apps Script 上，才需要填「網頁應用程式網址」
+const store={};let loaded=false,lastRaw="",subs=[],inflight=0;
+function rpc(fn,arg){return new Promise((res,rej)=>{
+ if(window.google&&google.script&&google.script.run){google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](arg)}
+ else if(API_URL.startsWith("http")){
+  if(fn==="apiList")fetch(API_URL+"?action=list").then(r=>r.json()).then(res,rej);
+  else fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify(arg)}).then(r=>r.json()).then(res,rej)}
+ else rej(new Error("no api"))})}
+function snapDoc(k){const d=store[k];return{id:k.split("/").slice(1).join("/"),exists:d!==undefined,data:()=>d}}
+function snapCol(c){const docs=Object.keys(store).filter(k=>k.startsWith(c+"/")).map(snapDoc);return{docs,size:docs.length,empty:!docs.length}}
+function notify(){subs.forEach(x=>{try{x.fn(x.snap())}catch(e){console.error(e)}})}
+function sub(snap,fn){const x={snap,fn};subs.push(x);if(loaded)fn(snap());return()=>{subs=subs.filter(y=>y!==x)}}
+async function pull(){
+ try{const raw=await rpc("apiList");if(inflight)return;
+  const txt=typeof raw==="string"?raw:JSON.stringify(raw);
+  if(loaded&&txt===lastRaw)return;lastRaw=txt;
+  const j=JSON.parse(txt);for(const k in store)delete store[k];
+  for(const k in j){try{store[k]=JSON.parse(j[k])}catch(e){}}
+  loaded=true;notify();
+ }catch(e){$("saveMsg").textContent="無法連線到資料庫，請確認網路或網址設定"}
+}
+const DB={collection(c){return{
+ doc(id){const k=c+"/"+id;return{
+  async set(data){inflight++;store[k]=JSON.parse(JSON.stringify(data));notify();
+   try{await rpc("apiSet",{key:k,value:JSON.stringify(data)})}catch(e){inflight--;pull();throw e}
+   inflight--;pull()},
+  onSnapshot(fn){return sub(()=>snapDoc(k),fn)}}},
+ onSnapshot(fn){return sub(()=>snapCol(c),fn)}}}};
+// ---- data
+let unsubs=[];
+function subscribe(){
+ unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[];avail={};submitted={};sched=null;closed=false;
+ const m=month;
+ unsubs.push(db.collection("avail").onSnapshot(snap=>{
+  if(m!==month)return;
+  snap.docs.forEach(doc=>{const v=doc.data();if(!v||!Array.isArray(v.work))return;
+   (allAvail[v.month]=allAvail[v.month]||{})[v.name]=new Set(v.work)});
+  avail=allAvail[m]=allAvail[m]||{};submitted={};Object.keys(avail).forEach(k=>submitted[k]=true);
+  if(!dirty)resetMine();
+  render();
+ },()=>{}));
+ unsubs.push(db.collection("config").doc("close_"+m).onSnapshot(doc=>{if(m!==month)return;closed=doc.exists&&!!doc.data().closed;render()},()=>{}));
+ unsubs.push(db.collection("sched").onSnapshot(snap=>{
+  snap.docs.forEach(doc=>{try{const o=JSON.parse(doc.data().off||"{}"),x={};Object.keys(o).forEach(d=>x[d]=new Set(o[d]));schedAll[doc.id]=x}catch(e){}});
+  sched=schedAll[m]||null;render();
+ },()=>{}));
+}
+// ---- admin
+async function sha(t){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+async function tryUnlock(){
+ const v=$("pw").value.trim();let ok=false;
+ try{ok=(await sha(v))===(pwHash||await sha("594340"))}catch(e){ok=v===(pwHash?"":"594340")}
+ if(ok){unlocked=true;$("gate").classList.add("hide");$("adminBody").classList.remove("hide");$("tBoss").textContent="🔓 後台管理";$("pw").value="";$("pwMsg").textContent="";render()}
+ else $("pwMsg").textContent="密碼錯誤"
+}
+$("pwGo").onclick=tryUnlock;$("pw").onkeydown=e=>{if(e.key==="Enter")tryUnlock()};
+$("pwSet").onclick=async()=>{
+ const v=$("pw2").value.trim();if(v.length<4){$("pw2Msg").textContent="密碼至少 4 碼";return}
+ try{const h=await sha(v);await db.collection("config").doc("pw").set({h});pwHash=h;$("pw2").value="";$("pw2Msg").textContent="✓ 密碼已更改"}
+ catch(e){$("pw2Msg").textContent="更改失敗，請稍後再試"}
+};
+function applyRoster(list){ROSTER=list;NAMES=ROSTER.map(r=>r.name);if(me&&!NAMES.includes(me)){me="";resetMine()}}
+async function saveRoster(list){
+ applyRoster(list);render();
+ try{await db.collection("config").doc("roster").set({list:JSON.stringify(list)});$("rosterMsg").textContent="✓ 已更新"}
+ catch(e){$("rosterMsg").textContent="儲存失敗，請稍後再試"}
+}
+function renderRoster(){
+ const oldRp=$("rpIn")?$("rpIn").value:"";
+ $("roster").innerHTML=ROSTER.map((r,i)=>`<div class="row" style="margin:4px 0"><span style="min-width:90px"><b>${i+1}.</b> ${r.name}</span>
+  <button data-a="up" data-i="${i}" ${i===0?"disabled":""}>↑</button><button data-a="dn" data-i="${i}" ${i===ROSTER.length-1?"disabled":""}>↓</button>
+  <button data-a="del" data-i="${i}">${delArm===r.id?"確定刪除？":"刪除"}</button>
+  <button data-a="pw" data-i="${i}">設定密碼</button>${pwArm===r.id?`<input type="password" id="rpIn" placeholder="新密碼（至少 4 碼）"><button class="pri" data-a="pwok" data-i="${i}">確定</button>`:""}</div>`).join("");
+ $("roster").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+  const i=+b.dataset.i,a=b.dataset.a,l=ROSTER.slice();
+  if(a==="up"&&i>0){[l[i-1],l[i]]=[l[i],l[i-1]];delArm=null;saveRoster(l)}
+  else if(a==="dn"&&i<l.length-1){[l[i+1],l[i]]=[l[i],l[i+1]];delArm=null;saveRoster(l)}
+  else if(a==="pw"){pwArm=pwArm===l[i].id?null:l[i].id;renderRoster()}
+  else if(a==="pwok"){setUserPw(l[i].id,$("rpIn").value.trim())}
+  else if(a==="del"){if(delArm===l[i].id){l.splice(i,1);delArm=null;saveRoster(l)}else{delArm=l[i].id;renderRoster()}}
+ });
+ if($("rpIn")){$("rpIn").value=oldRp;if(oldRp)$("rpIn").focus()}
+}
+async function setUserPw(id,v){
+ if(v.length<4){$("rosterMsg").textContent="密碼至少 4 碼";return}
+ try{userPw[id]=await sha(v);await db.collection("config").doc("userpw").set({map:JSON.stringify(userPw)});pwArm=null;$("rosterMsg").textContent="✓ 密碼已設定";renderRoster()}
+ catch(e){$("rosterMsg").textContent="設定失敗，請稍後再試"}
+}
+$("addP").onclick=async()=>{
+ const n=$("newName").value.trim(),pw=$("newPw").value.trim();if(!n)return;
+ if(NAMES.includes(n)){$("rosterMsg").textContent="這個名字已經在名單裡";return}
+ if(pw.length<4){$("rosterMsg").textContent="請設定至少 4 碼的個人密碼";return}
+ const id="p"+Date.now().toString(36);
+ $("newName").value="";$("newPw").value="";
+ await setUserPw(id,pw);saveRoster(ROSTER.concat([{id,name:n}]));
+};
+render();
+(async()=>{
+ db=DB;
+ if(!db){$("saveMsg").textContent="目前無法連線資料庫（請登入後再開啟）";return}
+ db.collection("config").doc("roster").onSnapshot(doc=>{
+  if(doc.exists){try{const l=JSON.parse(doc.data().list);if(Array.isArray(l)&&l.length){applyRoster(l);render()}}catch(e){}}
+ },()=>{});
+ db.collection("config").doc("userpw").onSnapshot(doc=>{try{userPw=doc.exists?JSON.parse(doc.data().map||"{}"):{}}catch(e){}},()=>{});
+ db.collection("config").doc("pw").onSnapshot(doc=>{pwHash=doc.exists?doc.data().h:null},()=>{});
+ subscribe();
+ pull();setInterval(pull,6000);
+})();
+</script>
+</body>
+</html>
